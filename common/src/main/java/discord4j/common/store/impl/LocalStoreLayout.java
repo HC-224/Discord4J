@@ -405,29 +405,56 @@ public class LocalStoreLayout implements StoreLayout, DataAccessor, GatewayDataU
 
     @Override
     public Mono<Void> onChannelCreate(int shardIndex, ChannelCreate dispatch) {
-        return Mono.fromRunnable(() -> dispatch.channel().guildId().toOptional()
-                .ifPresent(guildId -> saveChannel(guildId.asLong(), dispatch.channel())));
+        return onChannelOrThreadCreate(shardIndex, dispatch.channel());
+    }
+
+    @Override
+    public Mono<Void> onThreadCreate(int shardIndex, ThreadCreate dispatch) {
+        return onChannelOrThreadCreate(shardIndex, dispatch.thread());
+    }
+
+    private Mono<Void> onChannelOrThreadCreate(int shardIndex, ChannelData channel) {
+        return Mono.fromRunnable(() -> channel.guildId().toOptional()
+            .ifPresent(guildId -> saveChannel(guildId.asLong(), channel)));
     }
 
     @Override
     public Mono<ChannelData> onChannelDelete(int shardIndex, ChannelDelete dispatch) {
-        ChannelData data = dispatch.channel();
-        return Mono.fromRunnable(() -> data.guildId().toOptional()
-                .map(Id::asLong)
-                .ifPresent(guildId -> {
-                    Id channelId = data.id();
-                    GuildContent guildContent = computeGuildContent(guildId);
-                    guildContent.channelIds.remove(channelId.asLong());
-                    ifNonNullDo(contentByChannel.get(channelId.asLong()), ChannelContent::dispose);
-                    ifNonNullDo(guilds.get(guildId), guild -> guild.getChannels().remove(channelId));
-                })).thenReturn(data);
+        return onChannelOrThreadDelete(shardIndex, dispatch.channel());
+    }
+
+    @Override
+    public Mono<ChannelData> onThreadDelete(int shardIndex, ThreadDelete dispatch) {
+        return onChannelOrThreadDelete(shardIndex, dispatch.thread());
+    }
+
+    private Mono<ChannelData> onChannelOrThreadDelete(int shardIndex, ChannelData channel) {
+        return Mono.fromRunnable(() -> channel.guildId().toOptional()
+            .map(Id::asLong)
+            .ifPresent(guildId -> {
+                Id channelId = channel.id();
+                GuildContent guildContent = computeGuildContent(guildId);
+                guildContent.channelIds.remove(channelId.asLong());
+                ifNonNullDo(contentByChannel.get(channelId.asLong()), ChannelContent::dispose);
+                ifNonNullDo(guilds.get(guildId), guild -> guild.getChannels().remove(channelId));
+            }))
+            .thenReturn(channel);
     }
 
     @Override
     public Mono<ChannelData> onChannelUpdate(int shardIndex, ChannelUpdate dispatch) {
-        return Mono.fromCallable(() -> dispatch.channel().guildId().toOptional()
-                .map(guildId -> saveChannel(guildId.asLong(), dispatch.channel()))
-                .orElse(null));
+        return onChannelOrThreadUpdate(shardIndex, dispatch.channel());
+    }
+
+    @Override
+    public Mono<ChannelData> onThreadUpdate(int shardIndex, ThreadUpdate dispatch) {
+        return onChannelOrThreadUpdate(shardIndex, dispatch.thread());
+    }
+
+    private Mono<ChannelData> onChannelOrThreadUpdate(int shardIndex, ChannelData channel) {
+        return Mono.fromCallable(() -> channel.guildId().toOptional()
+            .map(guildId -> saveChannel(guildId.asLong(), channel))
+            .orElse(null));
     }
 
     @Override

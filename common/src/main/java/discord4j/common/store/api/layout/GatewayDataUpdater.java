@@ -65,6 +65,40 @@ public interface GatewayDataUpdater {
     Mono<ChannelData> onChannelUpdate(int shardIndex, ChannelUpdate dispatch);
 
     /**
+     * Updates the internal state of the store according to the given {@link ThreadCreate} gateway dispatch. This
+     * will typically perform an insert operation on the related {@link ChannelData}, and add the ID to the list
+     * returned by {@link GuildData#activeThreads()} if applicable.
+     *
+     * @param shardIndex the index of the shard where the dispatch comes from
+     * @param dispatch   the dispatch data coming from Discord gateway
+     * @return a {@link Mono} completing when the operation is done
+     */
+    Mono<Void> onThreadCreate(int shardIndex, ThreadCreate dispatch);
+
+    /**
+     * Updates the internal state of the store according to the given {@link ThreadDelete} gateway dispatch. This
+     * will typically perform a delete operation on a related {@link ChannelData} that is already present in the
+     * store, and remove the ID from the list returned by {@link GuildData#activeThreads()} if applicable.
+     *
+     * @param shardIndex the index of the shard where the dispatch comes from
+     * @param dispatch   the dispatch data coming from Discord gateway
+     * @return a {@link Mono} completing when the operation is done, optionally returning the old state of the
+     * {@link ChannelData} before the deletion
+     */
+    Mono<ChannelData> onThreadDelete(int shardIndex, ThreadDelete dispatch);
+
+    /**
+     * Updates the internal state of the store according to the given {@link ThreadUpdate} gateway dispatch. This
+     * will typically perform an update operation on a related {@link ChannelData} that is already present in the store.
+     *
+     * @param shardIndex the index of the shard where the dispatch comes from
+     * @param dispatch   the dispatch data coming from Discord gateway
+     * @return a {@link Mono} completing when the operation is done, optionally returning the old state of the
+     * {@link ChannelData} before the update
+     */
+    Mono<ChannelData> onThreadUpdate(int shardIndex, ThreadUpdate dispatch);
+
+    /**
      * Updates the internal state of the store according to the given {@link GuildCreate} gateway dispatch. This
      * will typically perform an insert operation on the related {@link GuildData}, as well as all associated
      * entities received in the payload, such as channels, roles, emojis, members, voice states and presences.

@@ -188,6 +188,12 @@ public final class Store {
                         .onChannelDelete(action.getShardIndex(), action.getChannelDelete()))
                 .map(ChannelUpdateAction.class, action -> gatewayDataUpdater
                         .onChannelUpdate(action.getShardIndex(), action.getChannelUpdate()))
+                .map(ThreadCreateAction.class, action -> gatewayDataUpdater
+                        .onThreadCreate(action.getShardIndex(), action.getThreadCreate()))
+                .map(ThreadDeleteAction.class, action -> gatewayDataUpdater
+                        .onThreadDelete(action.getShardIndex(), action.getThreadDelete()))
+                .map(ThreadUpdateAction.class, action -> gatewayDataUpdater
+                        .onThreadUpdate(action.getShardIndex(), action.getThreadUpdate()))
                 .map(GuildCreateAction.class, action -> gatewayDataUpdater
                         .onGuildCreate(action.getShardIndex(), action.getGuildCreate()))
                 .map(GuildDeleteAction.class, action -> gatewayDataUpdater

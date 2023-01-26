@@ -347,56 +347,72 @@ public class LegacyStoreLayout implements StoreLayout, DataAccessor, GatewayData
 
     @Override
     public Mono<Void> onChannelCreate(int shardIndex, ChannelCreate dispatch) {
-        Type type = Type.of(dispatch.channel().type());
+        return onThreadOrChannelCreate(shardIndex, dispatch.channel());
+    }
+
+    @Override
+    public Mono<Void> onThreadCreate(int shardIndex, ThreadCreate dispatch) {
+        return onThreadOrChannelCreate(shardIndex, dispatch.thread());
+    }
+
+    private Mono<Void> onThreadOrChannelCreate(int shardIndex, ChannelData channel) {
+        Type type = Type.of(channel.type());
         switch (type) {
             case GUILD_TEXT:
             case GUILD_VOICE:
             case GUILD_CATEGORY:
             case GUILD_NEWS:
             case GUILD_STORE:
-            case GUILD_STAGE_VOICE: return saveChannel(dispatch);
+            case PUBLIC_THREAD:
+            case PRIVATE_THREAD:
+            case GUILD_STAGE_VOICE: return saveChannelData(channel);
             case DM:
             case GROUP_DM: return Mono.empty();
-            default: throw new IllegalArgumentException("Unhandled channel type " + dispatch.channel().type());
+            default: throw new IllegalArgumentException("Unhandled channel type " + channel.type());
         }
     }
 
-    private Mono<Void> saveChannel(ChannelCreate dispatch) {
-        ChannelData channel = dispatch.channel();
-
+    private Mono<Void> saveChannelData(ChannelData channel) {
         Mono<Void> addChannelToGuild = stateHolder.getGuildStore()
-                .find(Snowflake.asLong(channel.guildId().get()))
-                .map(guildData -> GuildData.builder()
-                        .from(guildData)
-                        .channels(ListUtil.add(guildData.channels(), channel.id()))
-                        .build())
-                .flatMap(guild -> stateHolder.getGuildStore().save(Snowflake.asLong(guild.id()), guild));
+            .find(Snowflake.asLong(channel.guildId().get()))
+            .map(guildData -> GuildData.builder()
+                .from(guildData)
+                .channels(ListUtil.add(guildData.channels(), channel.id()))
+                .build())
+            .flatMap(guild -> stateHolder.getGuildStore().save(Snowflake.asLong(guild.id()), guild));
 
         Mono<Void> saveChannel = stateHolder.getChannelStore()
-                .save(Snowflake.asLong(channel.id()), channel);
+            .save(Snowflake.asLong(channel.id()), channel);
 
         return addChannelToGuild.then(saveChannel);
     }
 
     @Override
     public Mono<ChannelData> onChannelDelete(int shardIndex, ChannelDelete dispatch) {
-        Type type = Type.of(dispatch.channel().type());
+        return onChannelOrThreadDelete(shardIndex, dispatch.channel());
+    }
+
+    @Override
+    public Mono<ChannelData> onThreadDelete(int shardIndex, ThreadDelete dispatch) {
+        return onChannelOrThreadDelete(shardIndex, dispatch.thread());
+    }
+
+    private Mono<ChannelData> onChannelOrThreadDelete(int shardIndex, ChannelData channel) {
+        Type type = Type.of(channel.type());
         switch (type) {
             case GUILD_TEXT:
             case GUILD_VOICE:
             case GUILD_CATEGORY:
             case GUILD_NEWS:
             case GUILD_STORE:
-            case GUILD_STAGE_VOICE: return deleteChannel(dispatch);
+            case GUILD_STAGE_VOICE: return deleteChannelOrThread(channel);
             case DM:
             case GROUP_DM: return Mono.empty();
-            default: throw new IllegalArgumentException("Unhandled channel type " + dispatch.channel().type());
+            default: throw new IllegalArgumentException("Unhandled channel type " + channel.type());
         }
     }
 
-    private Mono<ChannelData> deleteChannel(ChannelDelete dispatch) {
-        ChannelData channel = dispatch.channel();
-
+    private Mono<ChannelData> deleteChannelOrThread(ChannelData channel) {
         Mono<Void> removeChannelFromGuild = stateHolder.getGuildStore()
                 .find(Snowflake.asLong(channel.guildId().get()))
                 .map(guildData -> GuildData.builder()
@@ -413,18 +429,39 @@ public class LegacyStoreLayout implements StoreLayout, DataAccessor, GatewayData
 
     @Override
     public Mono<ChannelData> onChannelUpdate(int shardIndex, ChannelUpdate dispatch) {
-        Type type = Type.of(dispatch.channel().type());
+        return updateChannelOrThread(shardIndex, dispatch.channel());
+    }
+
+    @Override
+    public Mono<ChannelData> onThreadUpdate(int shardIndex, ThreadUpdate dispatch) {
+        return updateChannelOrThread(shardIndex, dispatch.thread());
+    }
+
+    private Mono<ChannelData> updateChannelOrThread(int shardIndex, ChannelData channel) {
+        Type type = Type.of(channel.type());
         switch (type) {
             case GUILD_TEXT:
             case GUILD_VOICE:
             case GUILD_CATEGORY:
             case GUILD_NEWS:
             case GUILD_STORE:
-            case GUILD_STAGE_VOICE: return updateChannel(dispatch);
+            // TODO: This ignores threads that are archived and not deleted. This can cause memory bloat as those aren't removed.
+            case PUBLIC_THREAD:
+            case PRIVATE_THREAD:
+            case GUILD_STAGE_VOICE: return updateChannelOrThread(channel);
             case DM:
             case GROUP_DM: return Mono.empty();
-            default: throw new IllegalArgumentException("Unhandled channel type " + dispatch.channel().type());
+            default: throw new IllegalArgumentException("Unhandled channel type " + channel.type());
         }
+    }
+
+    private Mono<ChannelData> updateChannelOrThread(ChannelData channel) {
+        Mono<Void> saveNew = stateHolder.getChannelStore().save(Snowflake.asLong(channel.id()), channel);
+
+        return stateHolder.getChannelStore()
+            .find(Snowflake.asLong(channel.id()))
+            .flatMap(saveNew::thenReturn)
+            .switchIfEmpty(saveNew.then(Mono.empty()));
     }
 
     private enum Type {
@@ -436,6 +473,8 @@ public class LegacyStoreLayout implements StoreLayout, DataAccessor, GatewayData
         GUILD_CATEGORY(4),
         GUILD_NEWS(5),
         GUILD_STORE(6),
+        PUBLIC_THREAD(11),
+        PRIVATE_THREAD(12),
         GUILD_STAGE_VOICE(13);
 
         private final int value;
@@ -457,21 +496,12 @@ public class LegacyStoreLayout implements StoreLayout, DataAccessor, GatewayData
                 case 4: return GUILD_CATEGORY;
                 case 5: return GUILD_NEWS;
                 case 6: return GUILD_STORE;
+                case 11: return PUBLIC_THREAD;
+                case 12: return PRIVATE_THREAD;
                 case 13: return GUILD_STAGE_VOICE;
                 default: return UNKNOWN;
             }
         }
-    }
-
-    private Mono<ChannelData> updateChannel(ChannelUpdate dispatch) {
-        ChannelData channel = dispatch.channel();
-
-        Mono<Void> saveNew = stateHolder.getChannelStore().save(Snowflake.asLong(channel.id()), channel);
-
-        return stateHolder.getChannelStore()
-                .find(Snowflake.asLong(channel.id()))
-                .flatMap(saveNew::thenReturn)
-                .switchIfEmpty(saveNew.then(Mono.empty()));
     }
 
     @Override
