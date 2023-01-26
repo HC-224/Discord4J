@@ -69,37 +69,37 @@ public final class StateHolder {
         service.init(new StoreContext(Collections.singletonMap("messageClass", MessageData.class)));
 
         channelStore = service.provideLongObjStore(ChannelData.class);
-        log.debug("Channel storage     : {}", channelStore);
+        log.debug("Channel storage       : {}", channelStore);
 
         guildStore = service.provideLongObjStore(GuildData.class);
-        log.debug("Guild storage       : {}", guildStore);
+        log.debug("Guild storage         : {}", guildStore);
 
         guildStickerStore = service.provideLongObjStore(StickerData.class);
         log.debug("Guild sticker storage : {}", guildStickerStore);
 
         guildEmojiStore = service.provideLongObjStore(EmojiData.class);
-        log.debug("Guild emoji storage : {}", guildEmojiStore);
+        log.debug("Guild emoji storage   : {}", guildEmojiStore);
 
         memberStore = service.provideGenericStore(LongLongTuple2.class, MemberData.class);
-        log.debug("Member storage      : {}", memberStore);
+        log.debug("Member storage        : {}", memberStore);
 
         messageStore = service.provideLongObjStore(MessageData.class);
-        log.debug("Message storage     : {}", messageStore);
+        log.debug("Message storage       : {}", messageStore);
 
         presenceStore = service.provideGenericStore(LongLongTuple2.class, PresenceData.class);
-        log.debug("Presence storage    : {}", presenceStore);
+        log.debug("Presence storage      : {}", presenceStore);
 
         roleStore = service.provideLongObjStore(RoleData.class);
-        log.debug("Role storage        : {}", roleStore);
+        log.debug("Role storage          : {}", roleStore);
 
         stageInstanceStore = service.provideLongObjStore(StageInstanceData.class);
-        log.debug("StageInstance storage        : {}", stageInstanceStore);
+        log.debug("StageInstance storage : {}", stageInstanceStore);
 
         userStore = service.provideLongObjStore(UserData.class);
-        log.debug("User storage        : {}", userStore);
+        log.debug("User storage          : {}", userStore);
 
         voiceStateStore = service.provideGenericStore(LongLongTuple2.class, VoiceStateData.class);
-        log.debug("Voice state storage : {}", voiceStateStore);
+        log.debug("Voice state storage   : {}", voiceStateStore);
     }
 
     public StoreService getStoreService() {
